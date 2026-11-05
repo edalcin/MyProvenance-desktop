@@ -1,3 +1,5 @@
 # Upload de JSON faz upsert por ID, não cria sempre um Registro novo
 
 O JSON exportado carrega o ID (UUIDv7) do Registro de Proveniência. Ao fazer upload, se um Registro com esse ID já existe no SQLite local, ele é atualizado; se não existe (restauração em outra instância, backup), é criado com esse ID. Como a ferramenta é single-user e sem concorrência (ADR-0002), não há necessidade de resolver conflitos — o upload sempre substitui o estado local daquele Registro. Alternativa rejeitada: upload sempre cria um Registro novo — rejeitada por duplicar o registro ao simplesmente continuar de onde parou na mesma instância.
+
+**Na v2 desktop** ([Import do JSON da v1: ação explícita ou migração automática na pasta?](https://github.com/edalcin/MyProvenance-desktop/issues/9)): não há upsert. O "Importar da v1…" **recusa** o arquivo quando o `registro.id` já existe na pasta de dados, porque o upsert apagaria em silêncio as edições feitas na v2 (o `atualizadoEm` da migração é sempre mais antigo). Para substituir, o usuário exclui o Registro e importa de novo.

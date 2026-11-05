@@ -119,11 +119,11 @@ myprovenance/
 1. **Base do app**: o protótipo está feito (tag `prototipo-etapa1`). Falta o crate real na raiz: `model.rs` e `store.rs` partem da tag; telas de lista e de registro no layout escolhido; gravação explícita. Testar acentos ABNT2 no `TextEdit`.
 2. **Port da lógica**: `cardinalidade.ts`, `relacao.ts`, `report.ts`, `mermaid.ts`, `export.ts`. Usar `*.test.ts` da v1 como especificação dos testes Rust.
 3. **Grafo + export**.
-4. **Acabamento**: tema claro/escuro, import do JSON da v1. Sem i18n (ADR-0007 mantida).
+4. **Acabamento**: tema claro/escuro, "Importar da v1…" ([decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9): só ação explícita, `rfd` múltiplo + resumo; recusa id existente, migração inválida e arquivo v4). Sem i18n (ADR-0007 mantida).
 5. **Distribuição**: GitHub Actions `windows-latest`, `.msi` no Release. Assinatura Windows (SmartScreen) e builds macOS/Linux fora do escopo por ora.
 
 ## Decisões pendentes
 
-Rastreadas no mapa [Wayfinder #1](https://github.com/edalcin/MyProvenance-desktop/issues/1) (Agentes, repositório, Rascunho/Finalizado, pasta de dados, formato JSON v2, viabilidade egui, protótipo).
+Rastreadas no mapa [Wayfinder #1](https://github.com/edalcin/MyProvenance-desktop/issues/1) (Agentes, repositório, Rascunho/Finalizado, pasta de dados, formato JSON v2, viabilidade egui, protótipo, import da v1).
 
 Decidido: v1 web congelada após a v2 (só correções de segurança); v2 importa JSON da v1 em sentido único.

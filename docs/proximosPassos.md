@@ -12,7 +12,8 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Pasta de dados: uma pasta ativa (padrão `Documentos\MyProvenance`, trocável), "Recarregar", `mtime` antes de gravar (#5).
 - [x] Formato JSON v2: `schemaVersion: 4`, mesma linhagem da v1, leitura estrita (ADR-0014, #7).
 - [x] Protótipo da Etapa 1 (#8): layout B (telas), gravação explícita com aviso; código só na tag `prototipo-etapa1`; dados reais da v1 passam no leitor v4; `.exe` de 9,65 MB.
-- [ ] Fronteira: Etapa 1, crate real (#10); Import do JSON da v1 (#9).
+- [x] Import do JSON da v1 (#9): só ação explícita "Importar da v1…"; recusa id existente (sem upsert), migração inválida e arquivo v4.
+- [ ] Fronteira: Etapa 1, crate real (#10). Depois: Etapa 4, Importar da v1 (#11, bloqueado por #10).
 
 **Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Conversor descartável para v4: `prototipo/etapa1/v1_para_v4.py` na tag `prototipo-etapa1`.
 
