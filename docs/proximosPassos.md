@@ -11,7 +11,10 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Rascunho/Finalizado: continua como regra do app; sem detecção de edição externa (nota na ADR-0003).
 - [x] Pasta de dados: uma pasta ativa (padrão `Documentos\MyProvenance`, trocável), "Recarregar", `mtime` antes de gravar (#5).
 - [x] Formato JSON v2: `schemaVersion: 4`, mesma linhagem da v1, leitura estrita (ADR-0014, #7).
-- [ ] Fronteira: Protótipo Etapa 1 (#8); Import do JSON da v1 (#9).
+- [x] Protótipo da Etapa 1 (#8): layout B (telas), gravação explícita com aviso; código só na tag `prototipo-etapa1`; dados reais da v1 passam no leitor v4; `.exe` de 9,65 MB.
+- [ ] Fronteira: Etapa 1, crate real (#10); Import do JSON da v1 (#9).
+
+**Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Conversor descartável para v4: `prototipo/etapa1/v1_para_v4.py` na tag `prototipo-etapa1`.
 
 **Como continuar:** `/wayfinder https://github.com/edalcin/MyProvenance-desktop/issues/1`. Um ticket por sessão.
 

@@ -64,12 +64,17 @@ Futuro opcional: PROV-JSON (W3C) como formato nativo — mais interoperável, ma
 | Grafo | `egui::Painter` + `egui::Scene` + `rust-sugiyama` 0.4 + `petgraph` 0.8 (não `egui_graphs`: preso a egui 0.36, layout sem camadas de DAG) |
 | Modelo/JSON | `serde`, `serde_json` |
 | Validação | `garde` |
-| IDs | `uuid` (feature `v7`) |
+| IDs | `uuid` (feature `v7`; leitura aceita qualquer versão — a v1 tem UUIDv4) |
+| Datas | `jiff` (ISO 8601, exibição no fuso do sistema) |
+| Slug do nome do arquivo | `unicode-normalization` (NFD, igual ao `slugify` da v1) |
+| Ícones | Boxicons vendorizado como fonte (egui 0.37 deixou emoji opt-in; a fonte padrão não tem `→`/`←`) |
 | Arquivos | `directories`, `tempfile`, `rfd` |
 | Migração v1 (HTML→Markdown) | `htmd` |
 | Empacotamento | `cargo-packager` 0.11 (.msi, WiX baixado automaticamente) |
 
-Release profile: `lto = "fat"`, `codegen-units = 1`, `strip = true`. Detalhes e riscos para o protótipo: `docs/research/egui-viabilidade.md`.
+Release profile: `lto = "fat"`, `codegen-units = 1`, `strip = true`, mais `RUSTFLAGS=-C target-feature=+crt-static`. O protótipo deu 9,65 MB, sem dependência de `VCRUNTIME`. Detalhes: `docs/research/egui-viabilidade.md`.
+
+UI ([Protótipo da Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/8), código na tag `prototipo-etapa1`): **telas**. A tabela de Registros ocupa a tela toda; um clique abre a tela do Registro, que tem "Voltar". A descrição fica em abas Editar/Visualizar. A **gravação é explícita** (botão Gravar e Ctrl+S, com marcador "não gravado"); Voltar ou fechar com edição pendente pergunta Gravar/Descartar/Cancelar.
 
 Toolkits considerados: egui (escolhido — simples, ecossistema), Iced (API instável), Slint (licença GPLv3/royalty-free/comercial), Dioxus/Tauri (WebView, não é Rust puro).
 
@@ -111,7 +116,7 @@ myprovenance/
 
 ## Etapas
 
-1. **Protótipo**: `model.rs`, `store.rs`, tela lista + tela registro. Valida UX egui e formato JSON.
+1. **Base do app**: o protótipo está feito (tag `prototipo-etapa1`). Falta o crate real na raiz: `model.rs` e `store.rs` partem da tag; telas de lista e de registro no layout escolhido; gravação explícita. Testar acentos ABNT2 no `TextEdit`.
 2. **Port da lógica**: `cardinalidade.ts`, `relacao.ts`, `report.ts`, `mermaid.ts`, `export.ts`. Usar `*.test.ts` da v1 como especificação dos testes Rust.
 3. **Grafo + export**.
 4. **Acabamento**: tema claro/escuro, import do JSON da v1. Sem i18n (ADR-0007 mantida).

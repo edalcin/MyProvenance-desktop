@@ -15,6 +15,8 @@ Migração 3→4: `descricao` HTML→Markdown com a crate `htmd` (usada só aqui
 
 Arquivo: `<slug-do-título>-<últimos 8 hex do id>.json`. O nome é fixo na criação e nunca muda quando o título muda. A identidade é sempre `registro.id`. Os 8 últimos hex são aleatórios; os primeiros são timestamp do UUIDv7 e se repetem dentro do mesmo minuto. Se dois arquivos têm o mesmo `registro.id`, o app carrega o arquivo com o maior `atualizadoEm` (empate: ordem do nome) e avisa sobre os outros, sem alterá-los.
 
+Ids: o leitor aceita UUID de qualquer versão, porque a base real da v1 tem UUIDv4 (visto no [Protótipo da Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/8)). A v2 gera só UUIDv7.
+
 Serialização: pretty-print com 2 espaços, UTF-8 sem BOM, LF e newline no fim, `null` explícito, ordem dos campos = ordem do struct, arrays na ordem de inserção. O leitor aceita BOM.
 
 Alternativas rejeitadas: **campo novo `versao: 1`**, que criaria duas linhagens e um segundo detector para a v1. **Manter `registroId`/`entidadesGeradas`**, que deixaria dados redundantes e regras de coerência a mais. **Ignorar ou preservar campos desconhecidos**, porque ignorar perde dados em silêncio e preservar esconde typos. **Renomear o arquivo quando o título muda**, porque Git/Dropbox veem o rename como delete + create. **Aplicar as regras de domínio só nos formulários**, porque o app ficaria com duas noções de "válido".
