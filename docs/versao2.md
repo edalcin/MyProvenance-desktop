@@ -1,6 +1,6 @@
 # MyProvenance — Versão 2 (stand-alone, Rust puro)
 
-> Documento de planejamento. Status: **consulta/decisão** — nenhum código escrito. Data: 2026-11-04.
+> Documento de planejamento. Status: **Etapa 1 feita** (crate na raiz). Data: 2026-11-05.
 
 ## Objetivo
 
@@ -61,9 +61,10 @@ Futuro opcional: PROV-JSON (W3C) como formato nativo — mais interoperável, ma
 |---|---|
 | App/UI | `eframe` + `egui` 0.37, `default-features = false`, backend `glow` (~5,6 MB vs ~11 MB `wgpu`) |
 | Markdown | `TextEdit` multilinha (editor), `egui_commonmark` 0.26 (preview) |
+| Tabela da lista | `egui_extras` 0.37 (`TableBuilder`, linhas virtualizadas = rolagem infinita) |
 | Grafo | `egui::Painter` + `egui::Scene` + `rust-sugiyama` 0.4 + `petgraph` 0.8 (não `egui_graphs`: preso a egui 0.36, layout sem camadas de DAG) |
 | Modelo/JSON | `serde`, `serde_json` |
-| Validação | `garde` |
+| Validação | `garde` 0.23 (limites do zod da v1: `.trim()` + comprimento UTF-16, mensagens pt-BR) |
 | IDs | `uuid` (feature `v7`; leitura aceita qualquer versão — a v1 tem UUIDv4) |
 | Datas | `jiff` (ISO 8601, exibição no fuso do sistema) |
 | Slug do nome do arquivo | `unicode-normalization` (NFD, igual ao `slugify` da v1) |
@@ -101,25 +102,25 @@ flowchart LR
 ```
 
 ```
-myprovenance/
-  Cargo.toml
-  src/
-    main.rs        # eframe::run_native
-    model.rs       # Registro, Agente, Entidade, Atividade
-    store.rs       # listar/ler/gravar, escrita atômica, "versao"
-    export.rs      # Markdown, Mermaid, JSON
-    ui/
-      lista.rs
-      registro.rs  # formulário + editor Markdown
-      grafo.rs
+Cargo.toml, .cargo/config.toml (crt-static)
+assets/boxicons/   # fonte de ícones vendorizada (MIT)
+src/
+  main.rs          # eframe::run_native + fontes
+  model.rs         # Documento v4, garde, validar() = "Registro válido"
+  store.rs         # carregar/ler/gravar/criar, escrita atômica, mtime
+  config.rs        # %APPDATA%\MyProvenance\config.json (pasta, tema)
+  ui/
+    mod.rs         # App, barra, Configurações, modais, gravação explícita
+    lista.rs       # tabela de Registros + busca
+    registro.rs    # tela do Registro (título, descrição Markdown)
 ```
 
 ## Etapas
 
-1. **Base do app**: o protótipo está feito (tag `prototipo-etapa1`). Falta o crate real na raiz: `model.rs` e `store.rs` partem da tag; telas de lista e de registro no layout escolhido; gravação explícita. Testar acentos ABNT2 no `TextEdit`.
+1. **Base do app** — feita ([Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/10)): crate na raiz; lista em tabela virtualizada com busca; tela do Registro com Voltar, abas Editar/Visualizar; gravação explícita (Gravar/Ctrl+S, pergunta ao sair/fechar); conflito de `mtime`; Novo/Finalizar/Excluir; Configurações (pasta via `rfd`); tema claro/escuro/sistema. Acentos ABNT2 (dead keys) testados no título e na descrição. Atividades/Entidades/Agentes aparecem só para leitura.
 2. **Port da lógica**: `cardinalidade.ts`, `relacao.ts`, `report.ts`, `mermaid.ts`, `export.ts`. Usar `*.test.ts` da v1 como especificação dos testes Rust.
 3. **Grafo + export**.
-4. **Acabamento**: tema claro/escuro, "Importar da v1…" ([decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9): só ação explícita, `rfd` múltiplo + resumo; recusa id existente, migração inválida e arquivo v4). Sem i18n (ADR-0007 mantida).
+4. **Acabamento**: "Importar da v1…" ([decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9): só ação explícita, `rfd` múltiplo + resumo; recusa id existente, migração inválida e arquivo v4). Tema claro/escuro já entrou na Etapa 1. Sem i18n (ADR-0007 mantida).
 5. **Distribuição**: GitHub Actions `windows-latest`, `.msi` no Release. Assinatura Windows (SmartScreen) e builds macOS/Linux fora do escopo por ora.
 
 ## Decisões pendentes
