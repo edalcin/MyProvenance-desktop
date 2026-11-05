@@ -38,10 +38,9 @@ Transformar o MyProvenance em app **desktop stand-alone**, **monousuário**, par
 
 ## Armazenamento JSON
 
-- Formato base: `RegistroExportado` da v1 (permite importar dados da versão web).
-- Campo `"versao": 1` em todo arquivo, para migrações futuras.
+- Formato ([ADR-0014](adr/0014-v2-formato-json-schemaversion-4.md)): `schemaVersion: 4`, mesma linhagem e envelope do `RegistroExportado` da v1; arquivos da v1 (1–3) entram por migração 3→4. Nome: `<slug-do-título>-<últimos 8 hex do id>.json`, fixo na criação.
 - **Escrita atômica obrigatória**: grava `.tmp` → `rename` (`tempfile::persist`).
-- Validação na leitura (substitui FKs do SQLite): `serde` + `garde`.
+- Validação na leitura (substitui FKs do SQLite): `serde` (`deny_unknown_fields`) + `garde`; integridade referencial, grafo acíclico, cardinalidade/Revisão — detalhe na ADR-0014.
 - Local ([Pasta de dados da v2](https://github.com/edalcin/MyProvenance-desktop/issues/5)): **uma pasta ativa**, padrão `Documentos\MyProvenance`, trocável nas Configurações (troca não move arquivos). Config em `%APPDATA%\MyProvenance\config.json`. Só o nível de cima da pasta é lido.
 - Listagem/busca: carregar todos os arquivos em memória na inicialização e no botão "Recarregar" (sem monitor de arquivos; ok até alguns milhares de registros).
 - Conflito: `mtime` guardado na leitura e comparado antes de gravar; se mudou/sumiu fora do app, perguntar (Sobrescrever / Recarregar).
@@ -67,6 +66,7 @@ Futuro opcional: PROV-JSON (W3C) como formato nativo — mais interoperável, ma
 | Validação | `garde` |
 | IDs | `uuid` (feature `v7`) |
 | Arquivos | `directories`, `tempfile`, `rfd` |
+| Migração v1 (HTML→Markdown) | `htmd` |
 | Empacotamento | `cargo-packager` 0.11 (.msi, WiX baixado automaticamente) |
 
 Release profile: `lto = "fat"`, `codegen-units = 1`, `strip = true`. Detalhes e riscos para o protótipo: `docs/research/egui-viabilidade.md`.
