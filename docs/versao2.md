@@ -42,8 +42,10 @@ Transformar o MyProvenance em app **desktop stand-alone**, **monousuário**, par
 - Campo `"versao": 1` em todo arquivo, para migrações futuras.
 - **Escrita atômica obrigatória**: grava `.tmp` → `rename` (`tempfile::persist`).
 - Validação na leitura (substitui FKs do SQLite): `serde` + `garde`.
-- Local: pasta de dados do Windows (`%APPDATA%`, via `directories`) — ou pasta escolhida pelo usuário ([ticket #5](https://github.com/edalcin/MyProvenance-desktop/issues/5)).
-- Listagem/busca: carregar todos os arquivos em memória na inicialização (ok até alguns milhares de registros).
+- Local ([Pasta de dados da v2](https://github.com/edalcin/MyProvenance-desktop/issues/5)): **uma pasta ativa**, padrão `Documentos\MyProvenance`, trocável nas Configurações (troca não move arquivos). Config em `%APPDATA%\MyProvenance\config.json`. Só o nível de cima da pasta é lido.
+- Listagem/busca: carregar todos os arquivos em memória na inicialização e no botão "Recarregar" (sem monitor de arquivos; ok até alguns milhares de registros).
+- Conflito: `mtime` guardado na leitura e comparado antes de gravar; se mudou/sumiu fora do app, perguntar (Sobrescrever / Recarregar).
+- Arquivo inválido: ignorado, aviso com nome + erro; nunca alterado. `.tmp` ignorados.
 
 | Aspecto | 1 arquivo por registro | JSON único |
 |---|---|---|

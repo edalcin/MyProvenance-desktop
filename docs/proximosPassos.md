@@ -9,7 +9,8 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Agentes: embutidos no Registro, cadastro derivado (ADR-0013).
 - [x] Repositório: repo novo (este). v1 arquivada só após o `.msi`.
 - [x] Rascunho/Finalizado: continua como regra do app; sem detecção de edição externa (nota na ADR-0003).
-- [ ] Fronteira: Pasta de dados (#5), Formato JSON v2 (#7).
+- [x] Pasta de dados: uma pasta ativa (padrão `Documentos\MyProvenance`, trocável), "Recarregar", `mtime` antes de gravar (#5).
+- [ ] Fronteira: Formato JSON v2 (#7).
 - [ ] Bloqueados: Protótipo Etapa 1 (#8) ← #7.
 
 **Como continuar:** `/wayfinder https://github.com/edalcin/MyProvenance-desktop/issues/1`. Um ticket por sessão.
