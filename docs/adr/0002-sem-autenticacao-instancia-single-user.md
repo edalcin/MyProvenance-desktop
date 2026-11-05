@@ -1,0 +1,5 @@
+# Sem autenticação — instância self-hosted de usuário único
+
+`Desenvolvimento.md` não menciona login em nenhum requisito (aponta para um deploy pessoal via UNRAID/Docker), e o produto não precisa de multi-tenência. Decidimos não implementar autenticação: a instância é single-user, os Registros de Proveniência salvos no SQLite não têm dono/conta, e o Agente de cada Atividade é sempre um campo preenchido manualmente no formulário (não um usuário logado). Alternativa rejeitada: login com contas e registros privados por usuário — rejeitada por adicionar superfície de segurança (senhas, sessões) sem requisito que a justifique; se o multi-usuário vier a ser necessário, revisar esta decisão.
+
+**Revisado pela ADR-0009**: autenticação foi introduzida, mas como **Conta opcional** (username + PIN, sem contas/senhas tradicionais) — o modo padrão continua sem login, rodando 100% no navegador sem nada persistido no servidor. Quem cria Conta ganha isolamento entre usuários (Registros e Agentes escopados); quem não cria, usa exatamente como descrito aqui, só que sem sequer tocar o SQLite do servidor.

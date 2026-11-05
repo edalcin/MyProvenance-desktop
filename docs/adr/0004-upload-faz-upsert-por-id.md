@@ -1,0 +1,3 @@
+# Upload de JSON faz upsert por ID, não cria sempre um Registro novo
+
+O JSON exportado carrega o ID (UUIDv7) do Registro de Proveniência. Ao fazer upload, se um Registro com esse ID já existe no SQLite local, ele é atualizado; se não existe (restauração em outra instância, backup), é criado com esse ID. Como a ferramenta é single-user e sem concorrência (ADR-0002), não há necessidade de resolver conflitos — o upload sempre substitui o estado local daquele Registro. Alternativa rejeitada: upload sempre cria um Registro novo — rejeitada por duplicar o registro ao simplesmente continuar de onde parou na mesma instância.

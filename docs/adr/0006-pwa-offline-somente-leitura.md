@@ -1,0 +1,3 @@
+# PWA offline cobre só leitura, não escrita
+
+Os dados vivem no SQLite do servidor (ADR-0001) — não há banco local no cliente. `Desenvolvimento.md` exige suporte a PWA "offline-ready quando aplicável". Decidimos que offline cobre visualização (app shell cacheado, Registros já carregados na sessão continuam visíveis sem rede); criar ou editar Entidades e Atividades exige conexão. Alternativa rejeitada: escrita offline com fila de sincronização local — rejeitada por exigir storage local duplicando o SQLite e resolução de conflitos, sem requisito que justifique a complexidade; revisar se o uso em campo sem conectividade se tornar um requisito real.

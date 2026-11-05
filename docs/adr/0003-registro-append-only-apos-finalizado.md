@@ -1,0 +1,5 @@
+# Registro de Proveniência é append-only após finalizado
+
+Proveniência existe para dar confiança e auditabilidade; permitir edição/exclusão livre de Atividades e Entidades depois que o registro passa a ser consultado como documento oficial destruiria essa garantia. Decidimos que um Registro de Proveniência tem dois estados: **Rascunho** (edição livre de Entidades/Atividades) e **Finalizado** (atingido só por ação explícita do usuário) — a partir de Finalizado, o histórico existente é imutável, só é possível _adicionar_ novas Entidades/Atividades. Alternativa rejeitada: edição sempre livre — rejeitada por permitir reescrever a história que a ferramenta deveria preservar. Alternativa rejeitada: append-only desde o primeiro registro (sem estado Rascunho) — rejeitada por atrapalhar a correção de erros de digitação durante a coleta inicial.
+
+**Revisado pela ADR-0010**: a primeira exportação do JSON deixou de finalizar o Registro automaticamente. Finalizar passou a ser sempre uma ação explícita do usuário.
