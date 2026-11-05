@@ -1,0 +1,25 @@
+# PROTÓTIPO DESCARTÁVEL — ticket "Protótipo da Etapa 1: lista + registro em egui"
+# https://github.com/edalcin/MyProvenance-desktop/issues/8
+# Não é código de produção. Roda com: cargo run --release -- --variante A|B|C
+[package]
+name = "myprovenance-prototipo-etapa1"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+eframe = { version = "0.37", default-features = false, features = ["glow", "default_fonts", "accesskit", "clipboard", "links"] }
+egui_commonmark = "0.26"
+# 0.37: emoji/ícones viraram opt-in. App real: Boxicons vendorizado como fonte (AGENTS.md).
+egui = { version = "0.37", default-features = false, features = ["monochrome_emoji_fonts"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v7"] }
+tempfile = "3"
+jiff = "0.2"
+unicode-normalization = "0.1"
+
+[profile.release]
+lto = "fat"
+codegen-units = 1
+strip = true
