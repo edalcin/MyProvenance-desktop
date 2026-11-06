@@ -1,6 +1,6 @@
 # MyProvenance — Versão 2 (stand-alone, Rust puro)
 
-> Documento de planejamento. Status: **Etapa 1 feita** (crate na raiz). Data: 2026-11-05.
+> Documento de planejamento. Status: **Etapas 1 e 2 feitas** (crate na raiz). Data: 2026-11-06.
 
 ## Objetivo
 
@@ -106,7 +106,8 @@ Cargo.toml, .cargo/config.toml (crt-static)
 assets/boxicons/   # fonte de ícones vendorizada (MIT)
 src/
   main.rs          # eframe::run_native + fontes
-  model.rs         # Documento v4, garde, validar() = "Registro válido"
+  model.rs         # Documento v4, garde, validar() = "Registro válido" (inclui ciclo e cardinalidade/Revisão)
+  export.rs        # relatório Markdown + Mermaid (port da v1)
   store.rs         # carregar/ler/gravar/criar, escrita atômica, mtime
   config.rs        # %APPDATA%\MyProvenance\config.json (pasta, tema)
   ui/
@@ -118,7 +119,7 @@ src/
 ## Etapas
 
 1. **Base do app** — feita ([Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/10)): crate na raiz; lista em tabela virtualizada com busca; tela do Registro com Voltar, abas Editar/Visualizar; gravação explícita (Gravar/Ctrl+S, pergunta ao sair/fechar); conflito de `mtime`; Novo/Finalizar/Excluir; Configurações (pasta via `rfd`); tema claro/escuro/sistema. Acentos ABNT2 (dead keys) testados no título e na descrição. Atividades/Entidades/Agentes aparecem só para leitura.
-2. **Port da lógica**: `cardinalidade.ts`, `relacao.ts`, `report.ts`, `mermaid.ts`, `export.ts`. Usar `*.test.ts` da v1 como especificação dos testes Rust.
+2. **Port da lógica** — feita ([Etapa 2](https://github.com/edalcin/MyProvenance-desktop/issues/12)): cardinalidade, Revisão e ciclo em `model::validar`; `export::relatorio` e `export::mermaid` (com o sufixo de `relacao.ts`); `export.ts` sem port, porque o arquivo já é o JSON (`store::serializar`). Os `*.test.ts` da v1 viraram testes Rust.
 3. **Grafo + export**.
 4. **Acabamento**: "Importar da v1…" ([decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9): só ação explícita, `rfd` múltiplo + resumo; recusa id existente, migração inválida e arquivo v4). Tema claro/escuro já entrou na Etapa 1. Sem i18n (ADR-0007 mantida).
 5. **Distribuição**: GitHub Actions `windows-latest`, `.msi` no Release. Assinatura Windows (SmartScreen) e builds macOS/Linux fora do escopo por ora.

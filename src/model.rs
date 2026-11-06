@@ -1,8 +1,11 @@
 //! Formato JSON v2 = `schemaVersion: 4` (ADR-0014). Ordem dos campos = ordem de serialização.
-//! "Registro válido" tem uma definição só: `validar`. Ciclo e cardinalidade/Revisão entram com o port da Etapa 2.
+//! "Registro válido" tem uma definição só: `validar`.
 use garde::Validate;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, fmt};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt,
+};
 use uuid::Uuid;
 
 pub const SCHEMA_VERSION: u32 = 4;
@@ -212,6 +215,10 @@ pub enum Invalido {
     EntidadeUsadaInexistente { atividade: Uuid, entidade: Uuid },
     GeradoraInexistente { entidade: Uuid, atividade: Uuid },
     RevisaoInexistente { entidade: Uuid, revisao: Uuid },
+    /// Regras de `cardinalidade.ts` da v1; a mensagem é a da v1.
+    Cardinalidade { atividade: Uuid, regra: &'static str },
+    Revisao { entidade: Uuid, regra: &'static str },
+    Ciclo { atividade: Uuid },
 }
 
 impl fmt::Display for Invalido {
@@ -231,6 +238,9 @@ impl fmt::Display for Invalido {
                 write!(f, "entidade {entidade}: atividade geradora inexistente {atividade}")
             }
             Self::RevisaoInexistente { entidade, revisao } => write!(f, "entidade {entidade}: revisaoDeId inexistente {revisao}"),
+            Self::Cardinalidade { atividade, regra } => write!(f, "atividade {atividade}: {regra}"),
+            Self::Revisao { entidade, regra } => write!(f, "entidade {entidade}: {regra}"),
+            Self::Ciclo { atividade } => write!(f, "atividade {atividade}: ciclo no grafo (usa Entidade gerada por ela mesma ou por uma sucessora)"),
         }
     }
 }
@@ -250,7 +260,7 @@ pub fn validar(d: &Documento) -> Result<(), Invalido> {
     }
     let agentes: HashSet<Uuid> = d.agentes.iter().map(|g| g.id).collect();
     let entidades: HashSet<Uuid> = d.entidades.iter().map(|e| e.id).collect();
-    let atividades: HashSet<Uuid> = d.atividades.iter().map(|a| a.id).collect();
+    let atividades: HashMap<Uuid, &Atividade> = d.atividades.iter().map(|a| (a.id, a)).collect();
     for a in &d.atividades {
         if !agentes.contains(&a.agente_id) {
             return Err(Invalido::AgenteInexistente { atividade: a.id, agente: a.agente_id });
@@ -259,15 +269,70 @@ pub fn validar(d: &Documento) -> Result<(), Invalido> {
             return Err(Invalido::EntidadeUsadaInexistente { atividade: a.id, entidade: u });
         }
     }
+    let mut geradoras: HashSet<Uuid> = HashSet::new();
     for e in &d.entidades {
-        if !atividades.contains(&e.gerada_por_atividade_id) {
+        let Some(geradora) = atividades.get(&e.gerada_por_atividade_id) else {
             return Err(Invalido::GeradoraInexistente { entidade: e.id, atividade: e.gerada_por_atividade_id });
-        }
+        };
         if let Some(rv) = e.revisao_de_id.filter(|rv| !entidades.contains(rv)) {
             return Err(Invalido::RevisaoInexistente { entidade: e.id, revisao: rv });
         }
+        // Derivação/sem relação ignoram revisaoDeId (v1).
+        if e.tipo_relacao_origem == Some(TipoRelacaoOrigem::Revisao) {
+            let regra = match e.revisao_de_id {
+                None => Some("Revisão precisa indicar de qual Entidade de entrada é uma nova versão."),
+                Some(rv) if !geradora.entidades_usadas.contains(&rv) => {
+                    Some("A Entidade revisada precisa estar entre as Entidades usadas pela Atividade.")
+                }
+                _ => None,
+            };
+            if let Some(regra) = regra {
+                return Err(Invalido::Revisao { entidade: e.id, regra });
+            }
+        }
+        geradoras.insert(geradora.id);
     }
-    Ok(())
+    for a in &d.atividades {
+        let (usa, gera) = (!a.entidades_usadas.is_empty(), geradoras.contains(&a.id));
+        let regra = match a.tipo {
+            TipoAtividade::Criacao if !gera => "Criação deve gerar 1 ou mais Entidades.",
+            TipoAtividade::Transformacao if !usa => "Transformação usa 1 ou mais Entidades.",
+            TipoAtividade::Transformacao if !gera => "Transformação deve gerar 1 ou mais Entidades.",
+            TipoAtividade::Analise if !usa => "Análise usa 1 ou mais Entidades.",
+            _ => continue,
+        };
+        return Err(Invalido::Cardinalidade { atividade: a.id, regra });
+    }
+    aciclico(d)
+}
+
+/// Kahn sobre as Atividades: aresta geradora(u) → a para cada u em `a.entidades_usadas`.
+/// Pressupõe referências já checadas.
+fn aciclico(d: &Documento) -> Result<(), Invalido> {
+    let geradora: HashMap<Uuid, Uuid> = d.entidades.iter().map(|e| (e.id, e.gerada_por_atividade_id)).collect();
+    let mut entrada: HashMap<Uuid, usize> = d.atividades.iter().map(|a| (a.id, a.entidades_usadas.len())).collect();
+    let mut seguintes: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+    for a in &d.atividades {
+        for u in &a.entidades_usadas {
+            seguintes.entry(geradora[u]).or_default().push(a.id);
+        }
+    }
+    let mut fila: Vec<Uuid> = entrada.iter().filter(|(_, n)| **n == 0).map(|(id, _)| *id).collect();
+    while let Some(id) = fila.pop() {
+        for s in seguintes.get(&id).into_iter().flatten() {
+            let n = entrada.get_mut(s).expect("atividade existe");
+            *n -= 1;
+            if *n == 0 {
+                fila.push(*s);
+            }
+        }
+        entrada.remove(&id);
+    }
+    // Sobra = Atividades no ciclo ou depois dele; reporta a primeira na ordem do arquivo.
+    match d.atividades.iter().find(|a| entrada.contains_key(&a.id)) {
+        Some(a) => Err(Invalido::Ciclo { atividade: a.id }),
+        None => Ok(()),
+    }
 }
 
 impl TipoAtividade {
@@ -413,6 +478,79 @@ mod testes {
         assert!(erro.contains("revisaoDeId inexistente"), "{erro}");
         let erro = doc(|v| v["entidades"][1]["id"] = "0199a8b0-0000-7000-8000-00000000a001".into()).unwrap_err();
         assert!(erro.contains("id repetido"), "{erro}");
+    }
+
+    const E1: &str = "0199a8b0-0000-7000-8000-00000000e001";
+    const E2: &str = "0199a8b0-0000-7000-8000-00000000e002";
+
+    /// Exemplo + Atividade nova (`tipo`, usando E1 ou nada, gerando `gera` Entidades novas).
+    fn com_atividade(tipo: &str, usa: bool, gera: usize) -> Result<(), String> {
+        doc(|v| {
+            let id = "0199a8b0-0000-7000-8000-00000000c0f0";
+            let usadas = if usa { vec![E1] } else { vec![] };
+            v["atividades"].as_array_mut().unwrap().push(serde_json::json!({
+                "id": id, "tipo": tipo, "agenteId": "0199a8b0-0000-7000-8000-00000000a001",
+                "dataHora": "2025-05-01T10:00:00Z", "descricao": null, "entidadesUsadas": usadas, "local": null,
+                "instrumento": null, "processo": null, "parametros": null, "ambienteExecucao": null
+            }));
+            for i in 0..gera {
+                v["entidades"].as_array_mut().unwrap().push(serde_json::json!({
+                    "id": format!("0199a8b0-0000-7000-8000-00000000ef{i:02}"), "nome": "saída", "descricao": null,
+                    "formato": null, "localizacao": null, "licenca": null, "geradaPorAtividadeId": id,
+                    "tipoRelacaoOrigem": null, "revisaoDeId": null
+                }));
+            }
+        })
+    }
+
+    /// Spec: `cardinalidade.test.ts` da v1 (validarCardinalidade).
+    #[test]
+    fn cardinalidade_por_tipo() {
+        let casos = [
+            ("criacao", false, 1, None),
+            ("criacao", true, 1, None),
+            ("criacao", false, 0, Some("Criação deve gerar")),
+            ("transformacao", true, 1, None),
+            ("transformacao", false, 1, Some("Transformação usa")),
+            ("transformacao", true, 0, Some("Transformação deve gerar")),
+            ("analise", true, 0, None),
+            ("analise", true, 2, None),
+            ("analise", false, 0, Some("Análise usa")),
+        ];
+        for (tipo, usa, gera, esperado) in casos {
+            match (com_atividade(tipo, usa, gera), esperado) {
+                (Ok(()), None) => {}
+                (Err(e), Some(m)) if e.contains(m) => {}
+                (r, _) => panic!("{tipo} usa={usa} gera={gera}: {r:?}"),
+            }
+        }
+    }
+
+    /// Spec: `cardinalidade.test.ts` da v1 (validarRelacoesGeradas). E2 = revisão de E1, gerada por c002 que usa E1.
+    #[test]
+    fn revisao_exige_fonte_entre_as_usadas() {
+        let erro = doc(|v| v["entidades"][1]["revisaoDeId"] = serde_json::Value::Null).unwrap_err();
+        assert!(erro.contains("Revisão precisa indicar"), "{erro}");
+        let erro = doc(|v| v["entidades"][1]["revisaoDeId"] = E2.into()).unwrap_err();
+        assert!(erro.contains("precisa estar entre as Entidades usadas"), "{erro}");
+        assert_eq!(doc(|v| v["entidades"][1]["tipoRelacaoOrigem"] = "derivacao".into()), Ok(()));
+        assert_eq!(
+            doc(|v| {
+                v["entidades"][1]["tipoRelacaoOrigem"] = serde_json::Value::Null;
+                v["entidades"][1]["revisaoDeId"] = serde_json::Value::Null;
+            }),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn ciclo_e_invalido() {
+        // c002 usa E2, que ela mesma gera.
+        let erro = doc(|v| v["atividades"][1]["entidadesUsadas"].as_array_mut().unwrap().push(E2.into())).unwrap_err();
+        assert!(erro.contains("ciclo"), "{erro}");
+        // c001 (Criação com entrada) usa E2 ← c002 usa E1 ← c001.
+        let erro = doc(|v| v["atividades"][0]["entidadesUsadas"] = serde_json::json!([E2])).unwrap_err();
+        assert!(erro.contains("ciclo"), "{erro}");
     }
 
     #[test]

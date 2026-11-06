@@ -2,7 +2,7 @@
 
 ## v2 desktop (Rust/egui, só Windows) — em andamento
 
-Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](https://github.com/edalcin/MyProvenance-desktop/issues/1) (inclui execução até o `.msi` no Release). Estado em 2026-11-05:
+Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](https://github.com/edalcin/MyProvenance-desktop/issues/1) (inclui execução até o `.msi` no Release). Estado em 2026-11-06:
 
 - [x] Mapa criado e migrado de `edalcin/MyProvenance` para este repo.
 - [x] Viabilidade egui: viável; `docs/research/egui-viabilidade.md`.
@@ -14,7 +14,8 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Protótipo da Etapa 1 (#8): layout B (telas), gravação explícita com aviso; código só na tag `prototipo-etapa1`; dados reais da v1 passam no leitor v4; `.exe` de 9,65 MB.
 - [x] Import do JSON da v1 (#9): só ação explícita "Importar da v1…"; recusa id existente (sem upsert), migração inválida e arquivo v4.
 - [x] Etapa 1, crate real (#10): lista (tabela virtualizada + busca), tela do Registro, gravação explícita, conflito de `mtime`, Novo/Finalizar/Excluir, Configurações (pasta), tema. ABNT2 testado na descrição. `.exe` release de 9,19 MB.
-- [ ] Fronteira: Etapa 2, port da lógica da v1 (#12). Depois: Etapa 4, Importar da v1 (#11, bloqueado por #12).
+- [x] Etapa 2, port da lógica da v1 (#12): `validar` recusa ciclo e violação de cardinalidade/Revisão; `export.rs` gera relatório Markdown e Mermaid (ainda sem botão: Etapa 3). Os 3 Registros reais da v1 continuam válidos.
+- [ ] Fronteira: Etapa 4, Importar da v1 (#11).
 
 **Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Conversor descartável para v4: `prototipo/etapa1/v1_para_v4.py` na tag `prototipo-etapa1`. Build no `S:`: usar `CARGO_TARGET_DIR` no `C:` (o `.exe` fica travado no drive mapeado).
 
