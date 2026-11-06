@@ -15,7 +15,7 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Import do JSON da v1 (#9): só ação explícita "Importar da v1…"; recusa id existente (sem upsert), migração inválida e arquivo v4.
 - [x] Etapa 1, crate real (#10): lista (tabela virtualizada + busca), tela do Registro, gravação explícita, conflito de `mtime`, Novo/Finalizar/Excluir, Configurações (pasta), tema. ABNT2 testado na descrição. `.exe` release de 9,19 MB.
 - [x] Etapa 2, port da lógica da v1 (#12): `validar` recusa ciclo e violação de cardinalidade/Revisão; `export.rs` gera relatório Markdown e Mermaid (ainda sem botão: Etapa 3). Os 3 Registros reais da v1 continuam válidos.
-- [ ] Fronteira: Etapa 4, Importar da v1 (#11).
+- [ ] Fronteira: Etapa 4, Importar da v1 (#11); Formulários de Atividade, Entidade e Agente (#13, protótipo HITL).
 
 **Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Conversor descartável para v4: `prototipo/etapa1/v1_para_v4.py` na tag `prototipo-etapa1`. Build no `S:`: usar `CARGO_TARGET_DIR` no `C:` (o `.exe` fica travado no drive mapeado).
 
