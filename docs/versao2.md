@@ -1,6 +1,6 @@
 # MyProvenance — Versão 2 (stand-alone, Rust puro)
 
-> Documento de planejamento. Status: **Etapas 1 e 2 feitas** (crate na raiz). Data: 2026-11-06.
+> Documento de planejamento. Status: **Etapas 1 e 2 feitas** (crate na raiz); da Etapa 4, o "Importar da v1…" está feito. Data: 2026-11-07.
 
 ## Objetivo
 
@@ -121,7 +121,7 @@ src/
 1. **Base do app** — feita ([Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/10)): crate na raiz; lista em tabela virtualizada com busca; tela do Registro com Voltar, abas Editar/Visualizar; gravação explícita (Gravar/Ctrl+S, pergunta ao sair/fechar); conflito de `mtime`; Novo/Finalizar/Excluir; Configurações (pasta via `rfd`); tema claro/escuro/sistema. Acentos ABNT2 (dead keys) testados no título e na descrição. Atividades/Entidades/Agentes aparecem só para leitura.
 2. **Port da lógica** — feita ([Etapa 2](https://github.com/edalcin/MyProvenance-desktop/issues/12)): cardinalidade, Revisão e ciclo em `model::validar`; `export::relatorio` e `export::mermaid` (com o sufixo de `relacao.ts`); `export.ts` sem port, porque o arquivo já é o JSON (`store::serializar`). Os `*.test.ts` da v1 viraram testes Rust.
 3. **Grafo + export**.
-4. **Acabamento**: "Importar da v1…" ([decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9): só ação explícita, `rfd` múltiplo + resumo; recusa id existente, migração inválida e arquivo v4). Tema claro/escuro já entrou na Etapa 1. Sem i18n (ADR-0007 mantida).
+4. **Acabamento**: "Importar da v1…" — feito ([Etapa 4](https://github.com/edalcin/MyProvenance-desktop/issues/11), [decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9)): `importar::migrar` (leitor tolerante v1 = whitelist dos campos do zod, `htmd` na `descricao`, `atualizadoEm = finalizadoEm ?? criadoEm`, `direcaoDiagrama = 'TD'`) → `model::validar` → `store::criar`; botão na Lista, `rfd` múltiplo, resumo no fim; recusa id existente na pasta (relida antes), migração inválida e arquivo v4. Tema claro/escuro já entrou na Etapa 1. Sem i18n (ADR-0007 mantida).
 5. **Distribuição**: GitHub Actions `windows-latest`, `.msi` no Release. Assinatura Windows (SmartScreen) e builds macOS/Linux fora do escopo por ora.
 
 ## Decisões pendentes

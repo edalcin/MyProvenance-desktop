@@ -5,6 +5,7 @@ mod registro;
 
 use crate::{
     config::{self, Config, Tema},
+    importar,
     model::{self, Documento, Status},
     store::{self, Arquivo, ErroGravar},
 };
@@ -31,6 +32,7 @@ pub mod icone {
     pub const CLARO: &str = "\u{ec34}";
     pub const EXCLUIR: &str = "\u{ec50}";
     pub const PENDENTE: &str = "\u{ed47}";
+    pub const IMPORTAR: &str = "\u{eb1f}";
 }
 
 pub struct App {
@@ -82,6 +84,7 @@ enum Acao {
     EscolherPasta,
     PastaPadrao,
     Tema(Tema),
+    Importar,
 }
 
 enum Modal {
@@ -91,6 +94,7 @@ enum Modal {
     Excluir,
     Conflito { removido: bool },
     Erro(String),
+    Importado { importados: Vec<String>, recusados: Vec<String> },
 }
 
 impl App {
@@ -181,6 +185,12 @@ impl App {
                 aplicar_tema(ctx, t);
                 if let Err(e) = self.cfg.gravar() {
                     self.msg = format!("Tema não gravado no config.json: {e}");
+                }
+            }
+            Acao::Importar => {
+                let dialogo = rfd::FileDialog::new().set_title("Importar da v1").add_filter("JSON da v1", &["json"]);
+                if let Some(origens) = dialogo.pick_files() {
+                    self.importar(origens);
                 }
             }
         }
@@ -288,6 +298,24 @@ impl App {
             }
             Err(e) => self.modal = Some(Modal::Erro(format!("Não foi possível criar o Registro: {e}"))),
         }
+    }
+
+    /// Decisão #9: um arquivo novo por JSON da v1; recusados não param os outros. Nenhum Registro abre sozinho.
+    fn importar(&mut self, origens: Vec<PathBuf>) {
+        // Checa registro.id contra a pasta como está no disco agora (botão só na Lista: sem edição pendente).
+        self.recarregar();
+        let (mut importados, mut recusados) = (Vec::new(), Vec::new());
+        for origem in origens {
+            match importar::importar(&self.pasta, &origem, &self.arquivos) {
+                Ok(a) => {
+                    importados.push(format!("{}: importado como {}", store::nome(&origem), nome(&a)));
+                    self.arquivos.push(a);
+                }
+                Err(e) => recusados.push(format!("{}: {e}", store::nome(&origem))),
+            }
+        }
+        self.msg = format!("{} importado(s), {} não importado(s)", importados.len(), recusados.len());
+        self.modal = Some(Modal::Importado { importados, recusados });
     }
 }
 
@@ -520,6 +548,27 @@ impl App {
                 Modal::Erro(msg) => {
                     ui.heading("Erro");
                     ui.label(msg.as_str());
+                    if ui.button("OK").clicked() {
+                        fechar = true;
+                    }
+                }
+                Modal::Importado { importados, recusados } => {
+                    ui.set_width(620.0);
+                    ui.heading("Importar da v1");
+                    egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                        ui.strong(format!("Importados ({})", importados.len()));
+                        for t in importados.iter() {
+                            ui.label(RichText::new(t).monospace().small());
+                        }
+                        if !recusados.is_empty() {
+                            ui.add_space(6.0);
+                            ui.strong(format!("Não importados ({})", recusados.len()));
+                            for t in recusados.iter() {
+                                ui.label(RichText::new(t).monospace().small().color(ui.visuals().error_fg_color));
+                            }
+                        }
+                    });
+                    ui.label(RichText::new("Os arquivos de origem não foram alterados.").weak());
                     if ui.button("OK").clicked() {
                         fechar = true;
                     }

@@ -20,7 +20,15 @@ impl App {
     }
 
     pub(super) fn tela_lista(&mut self, ui: &mut egui::Ui) -> Option<Acao> {
-        ui.heading(format!("Registros ({})", self.arquivos.len()));
+        let mut acao = None;
+        ui.horizontal(|ui| {
+            ui.heading(format!("Registros ({})", self.arquivos.len()));
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if ui.button(format!("{} Importar da v1…", icone::IMPORTAR)).on_hover_text("JSON exportado pela v1 web").clicked() {
+                    acao = Some(Acao::Importar);
+                }
+            });
+        });
         ui.add(
             egui::TextEdit::singleline(&mut self.busca)
                 .hint_text(format!("{} Buscar no título e na descrição", icone::BUSCAR))
@@ -30,12 +38,12 @@ impl App {
         let linhas = self.visiveis();
         if linhas.is_empty() {
             let texto = if self.arquivos.is_empty() {
-                format!("Nenhum Registro em {}. Use “Novo Registro”.", self.pasta.display())
+                format!("Nenhum Registro em {}. Use “Novo Registro” ou “Importar da v1…”.", self.pasta.display())
             } else {
                 "Nenhum Registro encontrado.".into()
             };
             ui.label(RichText::new(texto).weak());
-            return None;
+            return acao;
         }
         let mut abrir = None;
         let altura = ui.text_style_height(&egui::TextStyle::Body) + 10.0;
@@ -76,6 +84,6 @@ impl App {
                     }
                 });
             });
-        abrir.map(Acao::Abrir)
+        abrir.map(Acao::Abrir).or(acao)
     }
 }

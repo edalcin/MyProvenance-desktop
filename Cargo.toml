@@ -20,6 +20,8 @@ unicode-normalization = "0.1"
 tempfile = "3"
 directories = "6"
 rfd = "0.17"
+# Só na migração 3→4 do "Importar da v1…": descricao HTML (TipTap) → Markdown (ADR-0014).
+htmd = "0.5"
 
 [profile.release]
 lto = "fat"

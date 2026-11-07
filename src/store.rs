@@ -73,7 +73,7 @@ pub fn nome_arquivo(doc: &Documento) -> String {
     format!("{}-{}.json", model::slug(&doc.registro.titulo), &hex[hex.len() - 8..])
 }
 
-fn nome(caminho: &Path) -> String {
+pub fn nome(caminho: &Path) -> String {
     caminho.file_name().map_or_else(|| caminho.display().to_string(), |n| n.to_string_lossy().into_owned())
 }
 
