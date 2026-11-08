@@ -1,6 +1,6 @@
 //! Tela do Registro: título, descrição Markdown (abas Editar/Visualizar) e conteúdo só leitura.
 //! Formulários de Atividade/Entidade e grafo nativo: Etapas 2–3.
-use super::{Acao, App, Ir, Tela, data, icone, nome, selo_status};
+use super::{Acao, App, Ir, Tela, data, icone, nome, prototipo, selo_status};
 use crate::model::{self, Documento, Status};
 use eframe::egui::{self, RichText};
 use egui_commonmark::CommonMarkViewer;
@@ -37,11 +37,32 @@ impl App {
             });
         });
         if let Some(erro) = &invalido {
-            ui.colored_label(ui.visuals().error_fg_color, format!("Não dá para gravar: {erro}"));
+            ui.colored_label(ui.visuals().error_fg_color, format!("Não dá para gravar: {}", prototipo::mensagem(erro, &e.doc)));
         }
         ui.separator();
 
+        // PROTÓTIPO #13: Finalizado → as Atividades já gravadas ficam imutáveis.
+        let gravadas: Vec<uuid::Uuid> = match e.doc.registro.status {
+            Status::Finalizado => self
+                .arquivos
+                .iter()
+                .find(|a| a.doc.registro.id == e.id)
+                .map(|a| a.doc.atividades.iter().map(|x| x.id).collect())
+                .unwrap_or_default(),
+            Status::Rascunho => Vec::new(),
+        };
+        let cad = prototipo::cadastro(self.arquivos.iter().map(|a| &a.doc).filter(|d| d.registro.id != e.id).chain([&e.doc]));
+        let st = &mut self.proto;
+        st.registro(e.id);
+        if st.variante == 1 {
+            e.sujo |= prototipo::painel(ui, st, &mut e.doc, &cad, &gravadas);
+        }
+
         egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
+            if st.tela_cheia() {
+                e.sujo |= prototipo::tela_form(ui, st, &mut e.doc, &cad, &gravadas);
+                return;
+            }
             let r = ui.add(
                 egui::TextEdit::singleline(&mut e.doc.registro.titulo)
                     .font(egui::TextStyle::Heading)
@@ -80,6 +101,12 @@ impl App {
                 e.doc.registro.descricao = (!texto.is_empty()).then_some(texto);
             }
             ui.separator();
+            if st.variante == 2 {
+                e.sujo |= prototipo::inline(ui, st, &mut e.doc, &cad, &gravadas);
+            } else {
+                prototipo::lista(ui, st, &e.doc, &gravadas);
+            }
+            ui.add_space(8.0);
             conteudo(ui, &e.doc);
             ui.add_space(24.0);
         });
@@ -88,23 +115,6 @@ impl App {
 }
 
 fn conteudo(ui: &mut egui::Ui, d: &Documento) {
-    let nome_agente = |id| d.agentes.iter().find(|g| g.id == id).map_or("?", |g| g.nome.as_str());
-    let nome_entidade = |id| d.entidades.iter().find(|e| e.id == id).map_or("?", |e| e.nome.as_str());
-    egui::CollapsingHeader::new(format!("Atividades ({})", d.atividades.len())).default_open(true).show(ui, |ui| {
-        for at in &d.atividades {
-            let usadas: Vec<_> = at.entidades_usadas.iter().map(|&u| nome_entidade(u)).collect();
-            let geradas: Vec<_> = d.entidades.iter().filter(|e| e.gerada_por_atividade_id == at.id).map(|e| e.nome.as_str()).collect();
-            ui.label(format!(
-                "{} · {} · {}{}  —  usa [{}]; gera [{}]",
-                at.tipo.rotulo(),
-                data(&at.data_hora),
-                nome_agente(at.agente_id),
-                at.descricao.as_deref().map(|s| format!(" · {s}")).unwrap_or_default(),
-                usadas.join(", "),
-                geradas.join(", ")
-            ));
-        }
-    });
     egui::CollapsingHeader::new(format!("Entidades ({})", d.entidades.len())).show(ui, |ui| {
         for e in &d.entidades {
             ui.label(format!("{} · {} · {}", e.nome, e.formato.as_deref().unwrap_or("—"), e.licenca.as_deref().unwrap_or("sem licença")));

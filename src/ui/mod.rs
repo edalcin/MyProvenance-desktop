@@ -1,6 +1,7 @@
 //! UI B (telas, decisão #8): Lista em tela cheia → tela do Registro com "Voltar"; Configurações.
 //! Gravação explícita: Gravar / Ctrl+S; sair com edição pendente pergunta Gravar/Descartar/Cancelar.
 mod lista;
+mod prototipo;
 mod registro;
 
 use crate::{
@@ -49,6 +50,7 @@ pub struct App {
     msg: String,
     /// O usuário já respondeu à pergunta de pendência; o próximo pedido de fechar passa.
     pode_fechar: bool,
+    proto: prototipo::Estado,
 }
 
 enum Tela {
@@ -114,6 +116,7 @@ impl App {
             ver_avisos: false,
             msg: String::new(),
             pode_fechar: false,
+            proto: prototipo::Estado::default(),
         };
         app.recarregar();
         app
@@ -344,6 +347,7 @@ impl eframe::App for App {
         }
         self.janela_avisos(&ctx);
         self.modais(&ctx);
+        prototipo::barra(&ctx, &mut self.proto);
     }
 }
 
