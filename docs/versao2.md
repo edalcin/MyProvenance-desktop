@@ -111,14 +111,15 @@ src/
   store.rs         # carregar/ler/gravar/criar, escrita atômica, mtime
   config.rs        # %APPDATA%\MyProvenance\config.json (pasta, tema)
   ui/
-    mod.rs         # App, barra, Configurações, modais, gravação explícita
+    mod.rs         # App, barra, Configurações, modais, gravação explícita, propagação de Agente
     lista.rs       # tabela de Registros + busca
-    registro.rs    # tela do Registro (título, descrição Markdown)
+    registro.rs    # tela do Registro (título, descrição Markdown, lista de Atividades)
+    atividade.rs   # formulário de Atividade/Entidade/Agente no painel lateral
 ```
 
 ## Etapas
 
-1. **Base do app** — feita ([Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/10)): crate na raiz; lista em tabela virtualizada com busca; tela do Registro com Voltar, abas Editar/Visualizar; gravação explícita (Gravar/Ctrl+S, pergunta ao sair/fechar); conflito de `mtime`; Novo/Finalizar/Excluir; Configurações (pasta via `rfd`); tema claro/escuro/sistema. Acentos ABNT2 (dead keys) testados no título e na descrição. Atividades/Entidades/Agentes aparecem só para leitura.
+1. **Base do app** — feita ([Etapa 1](https://github.com/edalcin/MyProvenance-desktop/issues/10)): crate na raiz; lista em tabela virtualizada com busca; tela do Registro com Voltar, abas Editar/Visualizar; gravação explícita (Gravar/Ctrl+S, pergunta ao sair/fechar); conflito de `mtime`; Novo/Finalizar/Excluir; Configurações (pasta via `rfd`); tema claro/escuro/sistema. Acentos ABNT2 (dead keys) testados no título e na descrição. Formulários de Atividade/Entidade/Agente — feitos ([#14](https://github.com/edalcin/MyProvenance-desktop/issues/14), [decisão](https://github.com/edalcin/MyProvenance-desktop/issues/13)): painel lateral transacional (Aplicar só com `validar` ok); Entidades geradas dentro da Atividade; "Entidades usadas" com busca e sem `model::descendentes`; data/hora `dd/mm/aaaa hh:mm` no fuso do sistema, gravada com o offset local; autocomplete de Agente no `model::cadastro` (ADR-0013) e pergunta "Atualizar todos / Só este" depois de gravar; Finalizado: Atividades gravadas só para ver.
 2. **Port da lógica** — feita ([Etapa 2](https://github.com/edalcin/MyProvenance-desktop/issues/12)): cardinalidade, Revisão e ciclo em `model::validar`; `export::relatorio` e `export::mermaid` (com o sufixo de `relacao.ts`); `export.ts` sem port, porque o arquivo já é o JSON (`store::serializar`). Os `*.test.ts` da v1 viraram testes Rust.
 3. **Grafo + export**.
 4. **Acabamento**: "Importar da v1…" — feito ([Etapa 4](https://github.com/edalcin/MyProvenance-desktop/issues/11), [decisão](https://github.com/edalcin/MyProvenance-desktop/issues/9)): `importar::migrar` (leitor tolerante v1 = whitelist dos campos do zod, `htmd` na `descricao`, `atualizadoEm = finalizadoEm ?? criadoEm`, `direcaoDiagrama = 'TD'`) → `model::validar` → `store::criar`; botão na Lista, `rfd` múltiplo, resumo no fim; recusa id existente na pasta (relida antes), migração inválida e arquivo v4. Tema claro/escuro já entrou na Etapa 1. Sem i18n (ADR-0007 mantida).

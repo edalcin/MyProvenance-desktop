@@ -1,12 +1,13 @@
 //! UI B (telas, decisão #8): Lista em tela cheia → tela do Registro com "Voltar"; Configurações.
 //! Gravação explícita: Gravar / Ctrl+S; sair com edição pendente pergunta Gravar/Descartar/Cancelar.
+mod atividade;
 mod lista;
 mod registro;
 
 use crate::{
     config::{self, Config, Tema},
     importar,
-    model::{self, Documento, Status},
+    model::{self, Agente, Documento, Status},
     store::{self, Arquivo, ErroGravar},
 };
 use eframe::egui::{self, Color32, RichText};
@@ -63,6 +64,15 @@ struct Edicao {
     doc: Documento,
     sujo: bool,
     visualizar: bool,
+    /// Formulário de Atividade aberto no painel lateral.
+    form: Option<atividade::Form>,
+}
+
+impl Edicao {
+    /// Volta para o que está gravado; o formulário aberto é descartado.
+    fn repor(&mut self, doc: Documento) {
+        (self.doc, self.sujo, self.form) = (doc, false, None);
+    }
 }
 
 /// Destino pedido. Com edição pendente, passa antes pela pergunta Gravar/Descartar/Cancelar.
@@ -95,6 +105,8 @@ enum Modal {
     Conflito { removido: bool },
     Erro(String),
     Importado { importados: Vec<String>, recusados: Vec<String> },
+    /// ADR-0013: Agentes editados que outros Registros em Rascunho têm com outros dados. `depois` = destino adiado.
+    Propagar { agentes: Vec<(Agente, Vec<Uuid>)>, depois: Option<Ir> },
 }
 
 impl App {
@@ -133,15 +145,16 @@ impl App {
         (self.arquivos, self.avisos) = (carga.arquivos, avisos);
         if let Tela::Registro(e) = &mut self.tela {
             match self.arquivos.iter().find(|a| a.doc.registro.id == e.id) {
-                Some(a) => (e.doc, e.sujo) = (a.doc.clone(), false),
+                Some(a) => e.repor(a.doc.clone()),
                 None => self.tela = Tela::Lista,
             }
         }
         self.msg = format!("{} registro(s) lido(s)", self.arquivos.len());
     }
 
+    /// Pendência que sair do Registro perde: cópia de trabalho não gravada ou formulário não aplicado.
     fn sujo(&self) -> bool {
-        matches!(&self.tela, Tela::Registro(e) if e.sujo)
+        matches!(&self.tela, Tela::Registro(e) if e.sujo || e.form.as_ref().is_some_and(atividade::Form::alterado))
     }
 
     fn ir(&mut self, ctx: &egui::Context, ir: Ir) {
@@ -198,7 +211,7 @@ impl App {
 
     fn abrir(&mut self, id: Uuid) {
         if let Some(a) = self.arquivos.iter().find(|a| a.doc.registro.id == id) {
-            self.tela = Tela::Registro(Edicao { id, doc: a.doc.clone(), sujo: false, visualizar: false });
+            self.tela = Tela::Registro(Edicao { id, doc: a.doc.clone(), sujo: false, visualizar: false, form: None });
         }
     }
 
@@ -212,14 +225,21 @@ impl App {
         self.recarregar();
     }
 
-    /// Grava o Registro aberto. `true` = gravou.
+    /// Grava o Registro aberto. `true` = gravou (ou não havia o que gravar).
     fn gravar(&mut self, forcar: bool) -> bool {
+        let propagar = self.propagaveis();
         let Tela::Registro(e) = &mut self.tela else { return false };
+        if !e.sujo {
+            return true;
+        }
         let Some(a) = self.arquivos.iter_mut().find(|a| a.doc.registro.id == e.id) else { return false };
         match store::gravar(a, &e.doc, forcar) {
             Ok(()) => {
                 (e.doc, e.sujo) = (a.doc.clone(), false);
                 self.msg = format!("Gravado: {}", nome(a));
+                if !propagar.is_empty() {
+                    self.modal = Some(Modal::Propagar { agentes: propagar, depois: None });
+                }
                 return true;
             }
             Err(ErroGravar::Alterado) => self.modal = Some(Modal::Conflito { removido: false }),
@@ -229,12 +249,58 @@ impl App {
         false
     }
 
+    /// ADR-0013: Agentes que esta cópia de trabalho editou (diferem da versão gravada aqui ou, se vieram do
+    /// autocomplete, da versão do cadastro) e os Registros em Rascunho que têm outros dados para eles.
+    fn propagaveis(&self) -> Vec<(Agente, Vec<Uuid>)> {
+        let Tela::Registro(e) = &self.tela else { return Vec::new() };
+        let gravado = self.arquivos.iter().find(|a| a.doc.registro.id == e.id).map(|a| &a.doc);
+        let cad = model::cadastro(self.arquivos.iter().map(|a| &a.doc));
+        let usados = e.doc.agentes.iter().filter(|g| e.doc.atividades.iter().any(|at| at.agente_id == g.id));
+        usados
+            .filter_map(|g| {
+                let base = gravado
+                    .and_then(|d| d.agentes.iter().find(|x| x.id == g.id))
+                    .or_else(|| cad.iter().find(|(x, _)| x.id == g.id).map(|(x, _)| x))?;
+                if base == g {
+                    return None;
+                }
+                let alvos: Vec<Uuid> = self
+                    .arquivos
+                    .iter()
+                    .filter(|a| a.doc.registro.id != e.id && a.doc.registro.status == Status::Rascunho)
+                    .filter(|a| a.doc.agentes.iter().any(|x| x.id == g.id && x != g))
+                    .map(|a| a.doc.registro.id)
+                    .collect();
+                (!alvos.is_empty()).then(|| (g.clone(), alvos))
+            })
+            .collect()
+    }
+
+    /// "Atualizar todos": grava cada Registro alvo com a versão nova do Agente; quem falha não para os outros.
+    fn propagar(&mut self, agentes: Vec<(Agente, Vec<Uuid>)>) {
+        let (mut gravados, mut falhas) = (0, Vec::new());
+        for (g, ids) in agentes {
+            for a in self.arquivos.iter_mut().filter(|a| ids.contains(&a.doc.registro.id)) {
+                let mut d = a.doc.clone();
+                d.agentes.iter_mut().filter(|x| x.id == g.id).for_each(|x| *x = g.clone());
+                match store::gravar(a, &d, false) {
+                    Ok(()) => gravados += 1,
+                    Err(erro) => falhas.push(format!("{}: {erro}", nome(a))),
+                }
+            }
+        }
+        self.msg = format!("Agente atualizado em {gravados} Registro(s)");
+        if !falhas.is_empty() {
+            self.modal = Some(Modal::Erro(format!("Agente não atualizado em:\n{}", falhas.join("\n"))));
+        }
+    }
+
     /// Volta a cópia de trabalho para o que está gravado.
     fn descartar(&mut self) {
         if let Tela::Registro(e) = &mut self.tela
             && let Some(a) = self.arquivos.iter().find(|a| a.doc.registro.id == e.id)
         {
-            (e.doc, e.sujo) = (a.doc.clone(), false);
+            e.repor(a.doc.clone());
         }
     }
 
@@ -244,7 +310,7 @@ impl App {
         let Some(i) = self.arquivos.iter().position(|a| a.doc.registro.id == e.id) else { return };
         match store::ler(&self.arquivos[i].caminho) {
             Ok(a) if a.doc.registro.id == e.id => {
-                (e.doc, e.sujo) = (a.doc.clone(), false);
+                e.repor(a.doc.clone());
                 self.arquivos[i] = a;
             }
             lido => {
@@ -326,7 +392,8 @@ impl eframe::App for App {
             ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.modal = Some(Modal::Pendente(Ir::Fechar));
         }
-        if self.modal.is_none() && ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) && self.sujo() {
+        let gravar = matches!(&self.tela, Tela::Registro(e) if e.sujo);
+        if self.modal.is_none() && ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, egui::Key::S)) && gravar {
             self.gravar(false);
         }
 
@@ -434,6 +501,7 @@ impl App {
     }
 
     fn modais(&mut self, ctx: &egui::Context) {
+        let form_pendente = matches!(&self.tela, Tela::Registro(e) if e.form.as_ref().is_some_and(atividade::Form::alterado));
         let Some(modal) = &mut self.modal else { return };
         let mut fechar = false;
         let mut depois: Option<Box<dyn FnOnce(&mut App)>> = None;
@@ -466,12 +534,20 @@ impl App {
                     let ir = *ir;
                     ui.heading("Edição não gravada");
                     ui.label("Este Registro tem edições que ainda não foram gravadas.");
+                    if form_pendente {
+                        ui.label(RichText::new("O formulário de Atividade aberto não foi aplicado: ele é descartado.").color(ui.visuals().warn_fg_color));
+                    }
                     ui.horizontal(|ui| {
                         let ctx = ui.ctx().clone();
                         if ui.button(format!("{} Gravar", icone::GRAVAR)).clicked() {
                             depois = Some(Box::new(move |app| {
-                                if app.gravar(false) {
-                                    app.executar(&ctx, ir);
+                                if !app.gravar(false) {
+                                    return;
+                                }
+                                // A pergunta de propagação vem antes; o destino espera a resposta.
+                                match &mut app.modal {
+                                    Some(Modal::Propagar { depois, .. }) => *depois = Some(ir),
+                                    _ => app.executar(&ctx, ir),
                                 }
                             }));
                         } else if ui.button("Descartar").clicked() {
@@ -572,6 +648,30 @@ impl App {
                     if ui.button("OK").clicked() {
                         fechar = true;
                     }
+                }
+                Modal::Propagar { agentes, depois: destino } => {
+                    ui.heading("Atualizar o Agente nos outros Registros?");
+                    for (g, ids) in agentes.iter() {
+                        ui.label(format!("{}: {} Registro(s) em Rascunho têm outros dados.", g.nome, ids.len()));
+                    }
+                    ui.label(RichText::new("Registros Finalizados ficam como estão.").weak());
+                    ui.horizontal(|ui| {
+                        let (ctx, ir) = (ui.ctx().clone(), *destino);
+                        let seguir = move |app: &mut App| {
+                            if let Some(ir) = ir {
+                                app.executar(&ctx, ir);
+                            }
+                        };
+                        if ui.button("Atualizar todos").clicked() {
+                            let agentes = std::mem::take(agentes);
+                            depois = Some(Box::new(move |app| {
+                                app.propagar(agentes);
+                                seguir(app);
+                            }));
+                        } else if ui.button("Só este").clicked() {
+                            depois = Some(Box::new(seguir));
+                        }
+                    });
                 }
             }
         });

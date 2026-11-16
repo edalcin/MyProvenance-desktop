@@ -2,7 +2,7 @@
 
 ## v2 desktop (Rust/egui, só Windows) — em andamento
 
-Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](https://github.com/edalcin/MyProvenance-desktop/issues/1) (inclui execução até o `.msi` no Release). Estado em 2026-11-08:
+Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](https://github.com/edalcin/MyProvenance-desktop/issues/1) (inclui execução até o `.msi` no Release). Estado em 2026-11-16:
 
 - [x] Mapa criado e migrado de `edalcin/MyProvenance` para este repo.
 - [x] Viabilidade egui: viável; `docs/research/egui-viabilidade.md`.
@@ -17,12 +17,12 @@ Plano: `docs/versao2.md`. Mapa canônico: [Wayfinder: MyProvenance v2 desktop](h
 - [x] Etapa 2, port da lógica da v1 (#12): `validar` recusa ciclo e violação de cardinalidade/Revisão; `export.rs` gera relatório Markdown e Mermaid (ainda sem botão: Etapa 3). Os 3 Registros reais da v1 continuam válidos.
 - [x] Etapa 4, Importar da v1 (#11), código no `main` (commit `ae57278`): botão "Importar da v1…" na Lista (`rfd` múltiplo, resumo); `importar::migrar` = whitelist do zod da v1 + `htmd` + campos novos do v4 → `validar` → arquivo novo. Os 3 Registros reais (export v3 gerado da cópia da base) importam; ciclo, arquivo v4 e id existente são recusados; origem intacta. 27 testes ok. `.exe` release de 9,80 MiB (+`htmd`/`html5ever`). Ticket fechado em 2026-11-08.
 - [x] Formulários (#13): **variante B, painel lateral**. Formulário transacional (Aplicar só com `validar` ok), Entidades geradas dentro da Atividade, Finalizado só para ver. Protótipo só na tag `prototipo-formularios`. Config do app restaurado.
-- [ ] **Próximo:** [Formulários de Atividade/Entidade/Agente no main (painel lateral)](https://github.com/edalcin/MyProvenance-desktop/issues/14) (task, atribuído). Reescrever a partir da tag; incluir busca em "Entidades usadas", sem Entidades descendentes, data/hora com fuso local.
-- [ ] Etapa 3 (grafo + export) ainda está na névoa do mapa.
+- [x] Formulários no `main` (#14): `src/ui/atividade.rs`, painel lateral transacional. "Entidades usadas" com busca e sem `model::descendentes`; data/hora `dd/mm/aaaa hh:mm` no fuso do sistema (grava com offset local); autocomplete de Agente no `model::cadastro` (cópia mais nova vence); depois de Gravar, pergunta "Atualizar todos / Só este" para Agentes editados que outros Registros em Rascunho têm com outros dados (ADR-0013); Finalizado: Atividades gravadas e seus Agentes só para ver. Formulário não aplicado conta como pendência ao sair. 31 testes ok. Smoke com cópia dos 3 Registros reais: busca, descendentes, propagação no disco, Finalizado. `.exe` release de 10,06 MiB.
+- [ ] **Próximo:** primeiro ticket da fronteira do mapa (protótipo do grafo nativo, Etapa 3). Ver a lista de tickets abertos do mapa.
 
-**Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Para ter Registros reais na v2: gerar o export v3 da cópia (como o `gerarJsonExportado` da v1) e usar "Importar da v1…". Build no `S:`: usar `CARGO_TARGET_DIR=C:/Users/EDalcin/AppData/Local/cargo-target/myprovenance` (o `.exe` fica travado no drive mapeado). `cargo clippy` não está instalado.
+**Dados de teste**: SQLite da v1 em `S:\appsdata\myprovenance\myprovenance.sqlite`, **só leitura**. Copiar o `.sqlite` e o `-wal` para fora do drive e ler a cópia. Para ter Registros reais na v2: gerar o export v3 da cópia (como o `gerarJsonExportado` da v1) e usar "Importar da v1…". Atalho: os 3 Registros já em v4 estão em `OMPtemp\etapa4\dados`; copiar a pasta antes do smoke. Build no `S:`: usar `CARGO_TARGET_DIR=C:/Users/EDalcin/AppData/Local/cargo-target/myprovenance` (o `.exe` fica travado no drive mapeado). `cargo clippy` não está instalado.
 
-**Smoke de UI**: accesskit expõe os widgets do egui ao UI Automation; `uv run --no-project --with pywinauto --with pillow python <script>` dirige o app e o diálogo do `rfd` (campo "Nome do arquivo" = `auto_id 1148`). Debug build: `Application.start(exe, wait_for_idle=False)`. O `set_focus` pode travar se outra janela tem o foco. Antes do smoke, apontar `pastaDados` em `%APPDATA%\MyProvenance\config.json` para uma pasta em OMPtemp e restaurar o config depois.
+**Smoke de UI**: accesskit expõe os widgets do egui ao UI Automation; `uv run --no-project --with pywinauto --with pillow python <script>` dirige o app e o diálogo do `rfd` (campo "Nome do arquivo" = `auto_id 1148`). Debug build: `Application.start(exe, wait_for_idle=False)`. O `set_focus` pode travar se outra janela tem o foco. Botão fora da área visível (painel com rolagem): `click_input` erra em silêncio; usar `.invoke()`. Antes do smoke, apontar `pastaDados` em `%APPDATA%\MyProvenance\config.json` para uma pasta em OMPtemp e restaurar o config depois.
 
 **Como continuar:** `/wayfinder https://github.com/edalcin/MyProvenance-desktop/issues/1`. Um ticket por sessão.
 

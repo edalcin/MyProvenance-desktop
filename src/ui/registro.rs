@@ -1,6 +1,6 @@
-//! Tela do Registro: título, descrição Markdown (abas Editar/Visualizar) e conteúdo só leitura.
-//! Formulários de Atividade/Entidade e grafo nativo: Etapas 2–3.
-use super::{Acao, App, Ir, Tela, data, icone, nome, selo_status};
+//! Tela do Registro: título, descrição Markdown (abas Editar/Visualizar), Atividades com formulário no painel
+//! lateral (decisão #13) e Entidades/Agentes só leitura. Grafo nativo: Etapa 3.
+use super::{Acao, App, Ir, Tela, atividade, data, icone, nome, selo_status};
 use crate::model::{self, Documento, Status};
 use eframe::egui::{self, RichText};
 use egui_commonmark::CommonMarkViewer;
@@ -37,9 +37,15 @@ impl App {
             });
         });
         if let Some(erro) = &invalido {
-            ui.colored_label(ui.visuals().error_fg_color, format!("Não dá para gravar: {erro}"));
+            ui.colored_label(ui.visuals().error_fg_color, format!("Não dá para gravar: {}", atividade::explicar(erro, &e.doc)));
         }
         ui.separator();
+
+        // Finalizado: o que já está gravado é histórico imutável.
+        let fixo = (e.doc.registro.status == Status::Finalizado)
+            .then(|| self.arquivos.iter().find(|a| a.doc.registro.id == e.id).map(|a| &a.doc))
+            .flatten();
+        atividade::painel(ui, e, &self.arquivos, fixo);
 
         egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
             let r = ui.add(
@@ -80,6 +86,8 @@ impl App {
                 e.doc.registro.descricao = (!texto.is_empty()).then_some(texto);
             }
             ui.separator();
+            atividade::lista(ui, e, fixo);
+            ui.add_space(8.0);
             conteudo(ui, &e.doc);
             ui.add_space(24.0);
         });
@@ -88,23 +96,6 @@ impl App {
 }
 
 fn conteudo(ui: &mut egui::Ui, d: &Documento) {
-    let nome_agente = |id| d.agentes.iter().find(|g| g.id == id).map_or("?", |g| g.nome.as_str());
-    let nome_entidade = |id| d.entidades.iter().find(|e| e.id == id).map_or("?", |e| e.nome.as_str());
-    egui::CollapsingHeader::new(format!("Atividades ({})", d.atividades.len())).default_open(true).show(ui, |ui| {
-        for at in &d.atividades {
-            let usadas: Vec<_> = at.entidades_usadas.iter().map(|&u| nome_entidade(u)).collect();
-            let geradas: Vec<_> = d.entidades.iter().filter(|e| e.gerada_por_atividade_id == at.id).map(|e| e.nome.as_str()).collect();
-            ui.label(format!(
-                "{} · {} · {}{}  —  usa [{}]; gera [{}]",
-                at.tipo.rotulo(),
-                data(&at.data_hora),
-                nome_agente(at.agente_id),
-                at.descricao.as_deref().map(|s| format!(" · {s}")).unwrap_or_default(),
-                usadas.join(", "),
-                geradas.join(", ")
-            ));
-        }
-    });
     egui::CollapsingHeader::new(format!("Entidades ({})", d.entidades.len())).show(ui, |ui| {
         for e in &d.entidades {
             ui.label(format!("{} · {} · {}", e.nome, e.formato.as_deref().unwrap_or("—"), e.licenca.as_deref().unwrap_or("sem licença")));

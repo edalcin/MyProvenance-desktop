@@ -68,7 +68,7 @@ pub enum TipoAgente {
     Software,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Agente {
     #[garde(skip)]
@@ -90,7 +90,7 @@ pub enum TipoRelacaoOrigem {
     Revisao,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Entidade {
     #[garde(skip)]
@@ -121,7 +121,7 @@ pub enum TipoAtividade {
     Analise,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Parametro {
     #[garde(custom(texto(true, 200)))]
@@ -130,7 +130,7 @@ pub struct Parametro {
     pub valor: String,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Pacote {
     #[garde(custom(texto(true, 200)))]
@@ -139,7 +139,7 @@ pub struct Pacote {
     pub versao: String,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AmbienteExecucao {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -150,7 +150,7 @@ pub struct AmbienteExecucao {
     pub pacotes: Option<Vec<Pacote>>,
 }
 
-#[derive(Serialize, Deserialize, Validate, Clone, Debug)]
+#[derive(Serialize, Deserialize, Validate, Clone, PartialEq, Debug)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Atividade {
     #[garde(skip)]
@@ -333,6 +333,40 @@ fn aciclico(d: &Documento) -> Result<(), Invalido> {
         Some(a) => Err(Invalido::Ciclo { atividade: a.id }),
         None => Ok(()),
     }
+}
+
+/// Entidades que a Atividade não pode usar sem criar ciclo: as que ela gera e as geradas pelas Atividades
+/// que dependem dela, direta ou indiretamente.
+// ponytail: ponto fixo O(n²); trocar por BFS com índice se um Registro passar de milhares de Atividades.
+pub fn descendentes(d: &Documento, atividade: Uuid) -> HashSet<Uuid> {
+    let mut atividades = HashSet::from([atividade]);
+    let mut entidades = HashSet::new();
+    loop {
+        let antes = entidades.len();
+        entidades.extend(d.entidades.iter().filter(|e| atividades.contains(&e.gerada_por_atividade_id)).map(|e| e.id));
+        if entidades.len() == antes {
+            return entidades;
+        }
+        let usam = d.atividades.iter().filter(|a| a.entidades_usadas.iter().any(|u| entidades.contains(u)));
+        atividades.extend(usam.map(|a| a.id));
+    }
+}
+
+/// Cadastro derivado de Agentes (ADR-0013): um por `id`, na cópia do Registro com maior `atualizadoEm`,
+/// e em quantos Registros ele aparece.
+pub fn cadastro<'a>(docs: impl IntoIterator<Item = &'a Documento>) -> Vec<(Agente, usize)> {
+    let mut m: HashMap<Uuid, (Agente, usize, jiff::Timestamp)> = HashMap::new();
+    for d in docs {
+        let t = d.registro.atualizado_em.parse().unwrap_or(jiff::Timestamp::MIN);
+        for g in &d.agentes {
+            let x = m.entry(g.id).or_insert_with(|| (g.clone(), 0, t));
+            x.1 += 1;
+            if t > x.2 {
+                (x.0, x.2) = (g.clone(), t);
+            }
+        }
+    }
+    m.into_values().map(|(g, n, _)| (g, n)).collect()
 }
 
 impl TipoAtividade {
@@ -551,6 +585,50 @@ mod testes {
         // c001 (Criação com entrada) usa E2 ← c002 usa E1 ← c001.
         let erro = doc(|v| v["atividades"][0]["entidadesUsadas"] = serde_json::json!([E2])).unwrap_err();
         assert!(erro.contains("ciclo"), "{erro}");
+    }
+
+    /// "Entidades usadas" esconde `descendentes`: são exatamente as Entidades que fariam `validar` recusar por ciclo.
+    #[test]
+    fn descendentes_sao_as_entidades_que_criam_ciclo() {
+        let mut v = exemplo();
+        let c3 = "0199a8b0-0000-7000-8000-00000000c003";
+        v["atividades"].as_array_mut().unwrap().push(serde_json::json!({
+            "id": c3, "tipo": "criacao", "agenteId": "0199a8b0-0000-7000-8000-00000000a001",
+            "dataHora": "2025-05-01T10:00:00Z", "descricao": null, "entidadesUsadas": [], "local": null,
+            "instrumento": null, "processo": null, "parametros": null, "ambienteExecucao": null
+        }));
+        v["entidades"].as_array_mut().unwrap().push(serde_json::json!({
+            "id": "0199a8b0-0000-7000-8000-00000000e003", "nome": "Fotos", "descricao": null, "formato": null,
+            "localizacao": null, "licenca": null, "geradaPorAtividadeId": c3, "tipoRelacaoOrigem": null, "revisaoDeId": null
+        }));
+        let d: Documento = serde_json::from_value(v).unwrap();
+        for a in &d.atividades {
+            let proibidas = descendentes(&d, a.id);
+            for e in d.entidades.iter().filter(|e| !a.entidades_usadas.contains(&e.id)) {
+                let mut x = d.clone();
+                x.atividades.iter_mut().find(|y| y.id == a.id).unwrap().entidades_usadas.push(e.id);
+                let r = validar(&x);
+                let ciclo = matches!(r, Err(Invalido::Ciclo { .. }));
+                assert_eq!(ciclo, proibidas.contains(&e.id), "{} usa {}: {r:?}", a.id, e.nome);
+                assert!(ciclo || r.is_ok(), "{} usa {}: {r:?}", a.id, e.nome);
+            }
+        }
+        // c001 → E1 → c002 → E2: a descendência é transitiva.
+        assert_eq!(descendentes(&d, d.atividades[0].id).len(), 2);
+    }
+
+    #[test]
+    fn cadastro_usa_a_copia_mais_nova() {
+        let velho: Documento = serde_json::from_value(exemplo()).unwrap();
+        let mut novo = velho.clone();
+        novo.registro.id = Uuid::now_v7();
+        novo.registro.atualizado_em = "2026-01-01T00:00:00Z".into();
+        novo.agentes[0].nome = "Ana S. Souza".into();
+        for docs in [[&velho, &novo], [&novo, &velho]] {
+            let cad = cadastro(docs);
+            let (ana, n) = cad.iter().find(|(g, _)| g.id == velho.agentes[0].id).unwrap();
+            assert_eq!((ana.nome.as_str(), *n), ("Ana S. Souza", 2));
+        }
     }
 
     #[test]
